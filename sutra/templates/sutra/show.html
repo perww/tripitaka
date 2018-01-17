@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-hans">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script src="https://cdn.bootcss.com/vue/2.4.2/vue.js"></script>
+    <script src="http://cdn.static.runoob.com/libs/jquery/1.10.2/jquery.min.js"></script>
+    <style type="text/css">
+        img {
+            float: left;
+            margin-left: 0px;
+        }
+
+        p {
+            margin-top: 0px;
+            margin-left: 20px;
+            margin-bottom: 0px;
+        }
+
+        td {
+            width: 200px;
+        }
+
+        tr {
+            width: 600px;
+        }
+
+        canvas {
+            border: 0px solid #ADACB0;
+            display: block;
+            margin: 0px auto;
+
+        }
+
+        .fixed {
+            position: absolute;
+            left: 10px;
+            top: 30px;
+        }
+
+        .txt {
+            position: absolute;
+            left: 1210px;
+            top: 30px;
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    龙泉经目：<select v-model="selected" @change.stop="showSutra">
+    <option v-for="tripitaka in tripitakas" v-bind:value="tripitaka.code">
+        ${ tripitaka.code } ${ tripitaka.name }
+    </option>
+</select>
+    <!--<span>Selected: ${ selected }</span>-->
+
+    经：<select v-model="select_sutra" @change.stop="showReel" width="400">
+    <option v-for="sutra in sutras" v-bind:value="sutra.id">
+        ${sutra.sid}:${ sutra.name }
+    </option>
+</select><!--
+    <button @click="gather_cut_data">生成切分数据</button>
+
+    <button @click="gather_col_data">生成列数据</button>
+    <span>Selected: ${ select_sutra }</span>-->
+
+    卷：<select v-model="select_reel" @click="showPage">
+    <option v-for="reel in reels" v-bind:value="reel.id">
+        ${ reel.name }
+    </option>
+</select>
+    <!--<button @click="crop_col_img">切列</button>
+    <span>Selected: ${ select_reel }</span>-->
+
+    页：<select v-model="select_page" @click="showPic">
+    <option v-for="(page,index) in pages" v-bind:value="index">
+        ${ page.r_page_no }
+    </option>
+</select>
+    <!--<span>Selected: ${ select_page }</span>
+    <input v-model="tripitaka_dir" placeholder="经卷图片所在藏经文件夹"></input>
+    <button @click="upload_img">上传所选经图片到s3
+    </button
+    >
+    <!--<img src = '/static/GLZ_S00001_R012_T0027_L01.jpg' />-->
+    <div>
+        <img class="fixed" v-bind:src='select_img' width="1200"/>
+        <canvas id="canvas" class="fixed" width="1200" height="2000"></canvas>
+        <div class="txt">
+            <p v-for="(p,index) in ps">${index}:${p}</p>
+        </div>
+    </div>
+
+    <!--<div>
+        <table>
+            <tr>
+                <td>图片名</td>
+                <td>图片</td>
+                <td>说明</td>
+            </tr>
+            <tr v-for="im,key in img_lst">
+                <td>${ im[1] }</td>
+                <td><img :src="key" width="200"></td>
+                <td>${ im[0] }</td>
+            </tr>
+        </table>
+
+
+    </div>
+
+    <my-selector selector-name="测试" :initial-selected="select_sutra" :ops="sutras"></my-selector>-->
+</div>
+
+</body>
+<script>
+    var draw_rect = function (context, x, y, w, h) {
+        context.moveTo(x, y);
+        context.lineTo(x + w, y);
+        context.lineTo(x + w, y + h);
+        context.lineTo(x, y + h);
+        context.lineTo(x, y);
+    };
+    Vue.component('my-selector', {
+        delimiters: ["${", "}"],
+        props: ['selectorName', 'initialSelected', 'ops', 'shownext'],
+        template: '<div> ' +
+        '<span>{{ selectorName }}</span>:<select   v-model="selected">\
+            <option v-for="op in ops" :value="op.code">${ op.name }\
+            </option>\
+        </select>\
+        </div>',
+        data: function () {
+            return {
+                selected: this.initialSelected,
+            }
+        }
+    });
+    var vum = new Vue({
+        delimiters: ["${", "}"],
+        el: '#app',
+
+        data: {
+            selected: " ",
+            tripitakas: {{ tripitaka|safe }},
+            select_sutra: " ",
+            sutras: "",
+            select_reel: " ",
+            reels: "",
+            select_page: " ",
+            select_img: "",
+            tripitaka_dir: "",
+            //"https://s3.cn-north-1.amazonaws.com.cn/lqcharacters-images/GLZ/S00001/R017/GLZ_S00001_R017_T0001.jpg",
+            pages: "",
+            ps: [],
+            points: [],
+            img_lst: ''
+        },
+        methods: {
+            showSutra: function () {
+                jQuery.ajax({
+                    type: 'Get',
+                    url: "/api/sutra?tripitaka=" + vum.selected,
+                    success: function (data) {
+                        vum.sutras = data;
+                    }
+                })
+            },
+            showReel: function () {
+                jQuery.ajax({
+                    type: 'Get',
+                    url: "/api/reel?sutra=" + vum.select_sutra,
+                    success: function (data) {
+                        vum.reels = data;
+                    }
+                })
+            },
+            showPage: function () {
+                jQuery.ajax({
+                    type: 'Get',
+                    url: "/api/page?reel=" + vum.select_reel,
+                    success: function (data) {
+                        vum.pages = data;
+                    }
+                })
+            },
+            get_cut_data: function () {
+                jQuery.ajax({
+                    type: 'Get',
+                    url: "/api/page/" + vum.pages[vum.select_page].id + "/get_cut_data",
+                    success: function (data) {
+                        //alert(data);
+                        var cut_data = data.char_data;
+                        var canvas = document.getElementById("canvas");
+                        var context = canvas.getContext("2d");
+                        canvas.height = canvas.height;
+                        for (var i = 0; i < cut_data.length; i++) {
+                            draw_rect(context, cut_data[i].x, cut_data[i].y, cut_data[i].w, cut_data[i].h);
+                        }
+                        context.lineWidth = 2;
+                        context.strokeStyle = "#f5323c";
+                        //绘制
+                        context.stroke();
+                        vum.ps = data.ps;
+                    }
+                })
+            },
+            upload_img: function () {
+                jQuery.ajax({
+                    type: 'Get',
+                    url: "/api/sutra/" + vum.select_sutra + "/upload_img?tripitaka_dir=" + vum.tripitaka_dir,
+                    success: function (data) {
+                        alert(data);
+                    }
+                })
+            },
+            showPic: function () {
+                vum.select_img = "https://s3.cn-north-1.amazonaws.com.cn/lqcharacters-images/" + vum.pages[vum.select_page].img_path;
+                vum.get_cut_data();
+            }
+            ,
+            gather_cut_data: function () {
+            }
+            ,
+            gather_col_data: function () {
+            }
+            ,
+            crop_col_img: function () {
+            }
+            ,
+            computed: function () {
+
+            }
+            ,
+            manual_input: function () {
+                var img_code = vum.img_code;
+                var paras = img_code.split("_")
+                vum.select_img = "https://s3.cn-north-1.amazonaws.com.cn/lqcharacters-images/" + paras.slice(0, 3).join('/') + '/' + img_code
+            }
+            ,
+            manual_inputs: function () {
+                var img_codes = vum.img_code.split('\n');
+                var img_lst = new Array();
+                for (var i = 0; i < img_codes.length; i++) {
+                    var paras = img_codes[i].split('GLZ_1200');
+                    img_lst[i] = "https://s3.cn-north-1.amazonaws.com.cn/lqcharacters-images" + paras[-1];
+                }
+                vum.img_lst = img_lst;
+            }
+        }
+    })
+</script>
+</html>

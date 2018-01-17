@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-hans">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script src="https://cdn.bootcss.com/vue/2.4.2/vue.js"></script>
+    <script src="http://cdn.static.runoob.com/libs/jquery/1.10.2/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lodash@4.13.1/lodash.min.js"></script>
+    <style type="text/css">
+        img {
+            float: left;
+            margin-left: 0px;
+        }
+
+        .split {
+            margin-left:10px;
+        }
+
+        canvas {
+            border: 1px solid #ADACB0;
+            display: block;
+            margin: 20px auto;
+            position: absolute;
+            left: 10px;
+            top: 10px;
+        }
+
+        .inv {
+            display:none;
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    图片：<select v-model="selected" @change="showchd">
+    <option v-for="img,key,index in img_lst" v-bind:value="key">
+        ${ key }
+    </option>
+</select>
+    <button @click="c_state">切换</button>
+    <input v-model="p_lst" />
+    <button @click="draw_rec">画框</button>
+    <canvas id="canvas"  width="1600" height="1560">
+
+    </canvas>
+    <img  v-for="chd in chd_lst" v-bind:class="{ split: isActive }" :src='chd'/>
+
+
+</div>
+</body>
+<script>
+    var draw_rect = function(context, point_lst){
+        context.moveTo(point_lst[0], point_lst[1]);
+        context.lineTo(point_lst[2], point_lst[1]);
+        context.lineTo(point_lst[2], point_lst[3]);
+        context.lineTo(point_lst[0], point_lst[3]);
+        context.lineTo(point_lst[0], point_lst[1]);
+    };
+    //设置对象起始点和终点
+    var vum = new Vue({
+        delimiters: ["${", "}"],
+        el: '#app',
+
+        data: {
+            selected: " ",
+            chd_lst: "",
+            img_lst: {{ img_lst|safe }},
+            point_lst: {{ point_lst|safe }},
+            draw_point_lst : '',
+            isActive:true,
+            p_lst:""
+
+            //point_lst: [0, 0, 10, 10]
+        },
+        methods: {
+            draw: function(point_lst){
+                var canvas = document.getElementById("canvas");
+                var context = canvas.getContext("2d");
+                canvas.height = canvas.height;
+                for (var j=0;j<point_lst.length;j++){
+                    var c = point_lst[j]
+                    for (var i=0;i<c.length/4;i++)
+                    {
+                        var p = new Array()
+                        if (vum.isActive){
+                            p[0] = c[i*4]+(j+1)*10;
+                            p[1] = c[i*4+1];
+                            p[2] = c[i*4+2]+(j+1)*10;
+                            p[3] = c[i*4+3];
+                        }
+                        else{
+                            p[0] = c[i*4];
+                            p[1] = c[i*4+1];
+                            p[2] = c[i*4+2];
+                            p[3] = c[i*4+3];
+                        }
+
+
+                        draw_rect(context, p)
+                    }
+                }
+
+
+                //设置样式
+                context.lineWidth = 1;
+                context.strokeStyle = "#3677f5";
+                //绘制
+                context.stroke();
+            },
+            draw_rec: function(){
+                var canvas = document.getElementById("canvas");
+                var context = canvas.getContext("2d");
+                //canvas.height = canvas.height;
+                var p_lsts = vum.p_lst.split(";");
+                for(var i=0;i<p_lsts.length;i++){
+                    var point_lst = p_lsts[i].split(',');
+                    context.moveTo(point_lst[0], point_lst[1]);
+                    context.lineTo(point_lst[2], point_lst[3]);
+                    context.lineTo(point_lst[4], point_lst[5]);
+                    context.lineTo(point_lst[6], point_lst[7]);
+                    context.lineTo(point_lst[0], point_lst[1]);
+                }
+
+
+                //设置样式
+                context.lineWidth = 1;
+                context.strokeStyle = "#F5270B";
+                //绘制
+                context.stroke();
+            },
+            showchd: function () {
+                if(vum.img_lst[vum.selected].length==0){
+                    vum.chd_lst = new Array()
+                    vum.chd_lst[0] = "/static/picked/"+vum.selected;
+                }
+                else{
+                    vum.chd_lst = vum.img_lst[vum.selected];
+                }
+
+                vum.draw_point_lst = vum.point_lst[vum.selected]
+                this.draw(vum.draw_point_lst)
+            },
+            c_state: function(){
+                if (vum.isActive){
+                    vum.isActive = false;
+                }
+                else{
+                    vum.isActive = true;
+                };
+                vum.showchd();
+            }
+        },
+        mounted:function(){
+            this.draw([0, 0, 10, 10])
+        }
+    });
+
+
+
+</script>
+</html>

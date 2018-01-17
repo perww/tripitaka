@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>无标题文档</title>
+<style>
+#ss{
+    width:400px;
+    height:400px;
+    background-color:#0F0;}
+</style>
+</head>
+
+<body>
+<form action="/" method="post">
+    用户名：<input type="text" name="username"><br />
+    密码：<input type="text" name="password">
+    <input type="submit" value="注册">
+
+</form>
+<script type="text/javascript">
+    var fm=document.getElementsByTagName("form")[0];
+    fm.addEventListener('submit',function(event){
+        alert("tj");
+        //event.preventDefault();
+        //return false//dom1级下生效
+
+    })
+
+</script>
+</body>
+</html>

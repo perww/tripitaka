@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh-hans">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script src="https://cdn.bootcss.com/vue/2.4.2/vue.js"></script>
+    <script src="http://cdn.static.runoob.com/libs/jquery/1.10.2/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@0.12.0/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lodash@4.13.1/lodash.min.js"></script>
+
+    <style type="text/css">
+        body, td, tr {
+            font-size: 14px;
+        }
+
+        img {
+            float: right;
+            margin-left: 0px;
+        }
+
+        p {
+            margin-top: 0px;
+            margin-left: 20px;
+            margin-bottom: 0px;
+        }
+
+        td {
+            border: 1px solid #ADACB0;
+            background-repeat: no-repeat;
+            background-position: 50%, 50%;
+            margin: 2px;
+            white-space: nowrap;
+            align: center;
+            vertical-align: middle;
+        }
+
+        tr {
+            border: 1px solid #ADACB0;
+        }
+
+        canvas {
+            border: 0px solid #ADACB0;
+            display: block;
+            margin: 0px auto;
+
+        }
+
+        .fixed {
+            position: absolute;
+            left: 40%;
+            top: 30px;
+        }
+
+        .txt {
+            position: absolute;
+            left: 72%;
+            top: 30px;
+        }
+
+        .yes {
+            background-image: url('/static/images/icon-yes.svg');
+
+        }
+
+        .no {
+            background-image: url('/static/images/icon-no.svg');
+        }
+
+        input {
+            width: 20px;
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    龙泉经目：<select v-model="selected" @click.stop="showSutra">
+    <option v-for="tripitaka in tripitakas" v-bind:value="tripitaka.code">
+        ${ tripitaka.code } ${ tripitaka.name }
+    </option>
+</select>
+    经：<select v-model="select_sutra" @click.stop="showReel" width="400">
+    <option v-for="sutra in sutras" v-bind:value="sutra">
+        ${sutra.sid}:${ sutra.name }
+    </option>
+</select>
+    卷：<select v-model="select_reel" @click="showPage">
+    <option v-for="reel in reels" v-bind:value="reel.id">
+        ${ reel.name }
+    </option>
+</select>
+    页：<select v-model="select_page" @click="showPic">
+    <option v-for="(page,index) in pages" v-bind:value="index">
+        ${ page.r_page_no }
+    </option>
+</select>
+    <!--<img src = '/static/GLZ_S00001_R012_T0027_L01.jpg' />
+<my-selector selector-name="测试" :initial-selected="select_sutra" :ops="sutras"></my-selector>-->
+    <div>
+        <label>${select_sutra.sid}:${ select_sutra.name }</label>
+        <button @click="gather_img_info(1, select_sutra.sid)">获取图片信息</button>
+        <button @click="generate_cut">生成.cut</button>
+        <button @click="generate_col(1, select_sutra.sid)">生成.col</button>
+        <button @click="upload_img(1, select_sutra.sid)">传图s3</button>
+    </div>
+    <table>
+        <tr>
+            <td>卷号</td>
+            <td>经代码</td>
+            <td>就绪</td>
+            <td>图片就绪</td>
+            <td>上传s3</td>
+            <td>文本就绪</td>
+            <td>切分就绪</td>
+            <td>列就绪</td>
+            <td>操作
+                当前页:<input v-model.lazy="cur_rno">
+                <select v-model="cur_rno">
+                    <option v-for="p in r_pages" :value="p">
+                        ${ p }
+                    </option>
+                </select>
+            </td>
+        </tr>
+        <tr v-for="r,index in show_reels">
+            <td>${ r.code }</td>
+            <td>${ r.sutra_code }</td>
+            <td :class="[r.ready ? yes : no]"></td>
+            <td :class="[r.image_ready ? yes : no]"></td>
+            <td :class="[r.image_upload ? yes : no]"></td>
+            <td :class="[r.txt_ready ? yes : no]"></td>
+            <td :class="[r.cut_ready ? yes : no]"></td>
+            <td :class="[r.column_ready ? yes : no]"></td>
+            <td>
+                <button @click="gather_img_info(2, r.id)">获取图片信息</button>
+                <button @click="generate_cut">生成.cut</button>
+                <button @click="generate_col(2, r.id)">生成.col</button>
+                <button @click="upload_img(2, r.id)">传图s3</button>
+            </td>
+        </tr>
+    </table>
+    <div>
+        <table>
+            <tr>
+                <td>序号</td>
+                <td>册号</td>
+                <td>页面编码</td>
+                <td>切分输出</td>
+                <td>坐标输出</td>
+                <td>1200生成</td>
+                <td>上传s3</td>
+                <td>列图切割</td>
+                <td>操作</td>
+            </tr>
+            <tr v-for="p,index in pages">
+                <td>${ index+1 }</td>
+                <td>${ p.v_no }</td>
+                <td>${ p.code }</td>
+                <td :class="[p.cut.cut_gened ? yes : no]"></td>
+                <td :class="[p.cut.col_gened ? yes : no]"></td>
+                <td :class="[p.img.img_1200 ? yes : no]"></td>
+                <td :class="[p.img.img_s3 ? yes : no]"></td>
+                <td :class="[p.img.img_cropped ? yes : no]"></td>
+                <td>
+                    <button @click="gather_img_info(3, p.id)">获取图片信息</button>
+                    <button>生成.cut</button>
+                    <button @click="generate_col(3, p.id)">生成.col</button>
+                    <button @click="upload_img(3, p.id)">传图s3</button>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <div>
+        <img class="fixed" v-bind:src='select_img' width="600"/>
+        <canvas id="canvas" class="fixed" width="600" height="1000"></canvas>
+        <div class="txt">
+            <p v-for="(p,index) in ps">${index}:${p}</p>
+        </div>
+    </div>
+</div>
+
+</body>
+<script>
+    var draw_rect = function (context, x, y, w, h) {
+        var draw_ratio = 0.5;
+        var x = x * draw_ratio;
+        var y = y * draw_ratio;
+        var w = w * draw_ratio;
+        var h = h * draw_ratio;
+        context.moveTo(x, y);
+        context.lineTo(x + w, y);
+        context.lineTo(x + w, y + h);
+        context.lineTo(x, y + h);
+        context.lineTo(x, y);
+    };
+    var vum = new Vue({
+        delimiters: ["${", "}"],
+        el: '#app',
+
+        data: {
+            selected: " ",
+            tripitakas: {{ tripitaka|safe }},
+            select_sutra: " ",
+            sutras: "",
+            select_reel: " ",
+            reels: [],
+            show_reels: [],
+            cur_rno: 1,
+            r_per_page: 5,
+            select_page: " ",
+            pages: "",
+            select_pages: [],
+            select_img: "",
+            tripitaka_dir: "",
+            //"https://s3.cn-north-1.amazonaws.com.cn/lqcharacters-images/GLZ/S00001/R017/GLZ_S00001_R017_T0001.jpg"
+            ps: [],
+            points: [],
+            img_lst: '',
+            yes: 'yes',
+            no: 'no',
+            r_pages: [1],
+            res: '',
+            sid: ''
+        },
+        methods: {
+            showSutra: function () {
+                jQuery.ajax({
+                    type: 'Get',
+                    url: "http://127.0.0.1:8000/api/sutra?tripitaka=" + vum.selected,
+                    success: function (data) {
+                        vum.sutras = data;
+                    }
+                })
+            },
+            showReel: function () {
+                jQuery.ajax({
+                    type: 'Get',
+                    url: "http://127.0.0.1:8000/api/reel?sutra=" + vum.select_sutra.id,
+                    success: function (data) {
+                        vum.reels = data;
+                        vum.show_reels = vum.reels.slice((vum.cur_rno - 1) * vum.r_per_page, vum.cur_rno * vum.r_per_page);
+                    }
+                })
+            },
+            showPage: function () {
+                jQuery.ajax({
+                    type: 'Get',
+                    url: "http://127.0.0.1:8000/api/page?reel=" + vum.select_reel,
+                    success: function (data) {
+                        vum.pages = data;
+                    }
+                })
+            },
+            get_cut_data: function () {
+                jQuery.ajax({
+                    type: 'Get',
+                    url: "http://127.0.0.1:8000/api/page/" + vum.pages[vum.select_page].id + "/get_cut_data",
+                    success: function (data) {
+                        //alert(data);
+                        var cut_data = data.char_data;
+                        var canvas = document.getElementById("canvas");
+                        var context = canvas.getContext("2d");
+                        canvas.height = canvas.height;
+                        for (var i = 0; i < cut_data.length; i++) {
+                            draw_rect(context, cut_data[i].x, cut_data[i].y, cut_data[i].w, cut_data[i].h);
+                        }
+                        context.lineWidth = 2;
+                        context.strokeStyle = "#f5323c";
+                        //绘制
+                        context.stroke();
+                        vum.ps = data.ps;
+                    }
+                })
+            },
+            upload_img: function (op_flag, id) {
+                var url = '';
+                if (op_flag == 2) {
+                    url = "http://127.0.0.1:8000/api/reel/" + id + "/upload_img";
+                }
+                else if (op_flag == 3) {
+                    url = "http://127.0.0.1:8000/api/page/" + id + "/upload_img";
+                }
+                else {
+                    //url = "http://127.0.0.1:8000/api/sutra/"+ id + "/generate_col";
+                    url = "http://127.0.0.1:8000/api/sutra/upload_img?sid=" + id;
+                }
+                jQuery.ajax({
+                    type: 'Get',
+                    url: url,
+                    success: function (data) {
+                        vum.ps = data;
+                    }
+                })
+            },
+            showPic: function () {
+                vum.select_img = "https://s3.cn-north-1.amazonaws.com.cn/lqcharacters-images/" + vum.pages[vum.select_page].img_path;
+                vum.get_cut_data();
+            },
+            generate_cut: function (op_flag, id) {
+                var url = '';
+                if (op_flag == 2) {
+                    url = "http://127.0.0.1:8000/api/reel/" + id + "/generate_col";
+                }
+                else if (op_flag == 3) {
+                    url = "http://127.0.0.1:8000/api/page/" + id + "/generate_col";
+                }
+                else {
+                    //url = "http://127.0.0.1:8000/api/sutra/"+ id + "/generate_col";
+                    url = "http://127.0.0.1:8000/api/sutra/generate_col?sid=" + id;
+                }
+                jQuery.ajax({
+                    type: 'Get',
+                    url: url,
+                    success: function (data) {
+                        vum.ps = data;
+                    }
+                })
+            },
+            generate_col: function (op_flag, id) {
+                var url = '';
+                if (op_flag == 2) {
+                    url = "http://127.0.0.1:8000/api/reel/" + id + "/generate_col";
+                }
+                else if (op_flag == 3) {
+                    url = "http://127.0.0.1:8000/api/page/" + id + "/generate_col";
+                }
+                else {
+                    //url = "http://127.0.0.1:8000/api/sutra/"+ id + "/generate_col";
+                    url = "http://127.0.0.1:8000/api/sutra/generate_col?sid=" + id;
+                }
+                jQuery.ajax({
+                    type: 'Get',
+                    url: url,
+                    success: function (data) {
+                        vum.ps = data;
+                    }
+                })
+            },
+            gather_img_info: function (op_flag, id) {
+                var url = '';
+                if (op_flag == 2) {
+                    url = "http://127.0.0.1:8000/api/reel/" + id + "/gather_img_info";
+                }
+                else if (op_flag == 3) {
+                    url = "http://127.0.0.1:8000/api/page/" + id + "/gather_img_info";
+                }
+                else {
+                    //url = "http://127.0.0.1:8000/api/sutra/"+ id + "/generate_col";
+                    url = "http://127.0.0.1:8000/api/sutra/gather_img_info?sid=" + id;
+                }
+                jQuery.ajax({
+                    type: 'Get',
+                    url: url,
+                    success: function (data) {
+                        vum.ps = data;
+                    }
+                })
+            },
+            crop_col_img: function () {
+            },
+            checkedAll: function () {
+                var _this = this;
+                console.log(_this.select_pages);
+                if (this.checked) {//实现反选
+                    _this.select_pages = [];
+                    this.checked = false;
+                } else {//实现全选
+                    _this.select_pages = [];
+                    _this.pages.forEach(function (item) {
+                        _this.select_pages.push(item.id);
+                    });
+                    this.checked = true;
+                }
+            }
+        },
+        watch: {
+            cur_rno: {
+                handler: function (val, oldval) {
+                    vum.show_reels = vum.reels.slice((vum.cur_rno - 1) * 5, vum.cur_rno * 5);
+                }
+            },
+            r_per_page: {
+                handler: function (val, oldval) {
+                    vum.show_reels = vum.reels.slice((vum.cur_rno - 1) * 5, vum.cur_rno * 5);
+                }
+            },
+            reels: {
+                handler: function (val, oldval) {
+                    vum.r_pages = _.range(1, vum.reels.length / 5 + 1)
+                    //[...Array().keys()]
+                }
+            }
+        }
+    });
+</script>
+</html>
